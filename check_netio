@@ -1,0 +1,98 @@
+#!/bin/sh
+###############################################
+#
+# Nagios script to check network I/O status
+#
+# See usage for command line switches
+#
+#
+# used -b Reports bandwith in kbits/sec instead of kbytes/sec.
+# Consequently, this check plugin always returns OK.
+# This plugin is a means of returning stats to nagios for graphing (recommend DERIVE graph in RRD)
+#
+# Created by : 2014-07-22 (hansg@reto.dk)
+#
+###############################################
+
+. /usr/lib/nagios/plugins/utils.sh
+
+VERSION="1.1"
+
+IFSTAT=/usr/bin/ifstat
+GREP=/bin/grep
+CUT=/usr/bin/cut
+
+FLAG_VERBOSE=FALSE
+INTERFACE=""
+LEVEL_WARN="0"
+LEVEL_CRIT="0"
+RESULT=""
+EXIT_STATUS=$STATE_OK
+
+###############################################
+#
+## FUNCTIONS
+#
+
+## Print usage
+usage() {
+        echo " check_netio $VERSION - Nagios network I/O check script"
+        echo ""
+        echo " Usage: check_netio {-i} [ -v ] [ -h ]"
+        echo ""
+        echo "           -i  Interface to check (e.g. eth0)"
+        echo "           -v  Verbose output (ignored for now)"
+        echo "           -h  Show this page"
+        echo ""
+}
+## Process command line options
+doopts() {
+        if ( `test 0 -lt $#` )
+        then
+                while getopts i:vh myarg "$@"
+                do
+                        case $myarg in
+                                h|\?)
+                                        usage
+                                        exit;;
+                                i)
+                                        INTERFACE=$OPTARG;;
+                                v)
+                                        FLAG_VERBOSE=TRUE;;
+                                *)      # Default
+                                        usage
+                                        exit;;
+                        esac
+                done
+        else
+                usage
+                exit
+        fi
+}
+
+# Write output and return result
+theend() {
+        echo $RESULT
+        exit $EXIT_STATUS
+}
+
+#
+## END FUNCTIONS
+#
+
+#############################################
+#
+## MAIN
+#
+# Handle command line options
+doopts $@
+# Do the do
+# calc from Kbits to bits
+# result = bits pr sec.
+BYTES_RX=`$IFSTAT -b -q 1 1 | tail -n 1 | awk '{ printf "%d",$1*1024 }'`
+BYTES_TX=`$IFSTAT -b -q 1 1 | tail -n 1 | awk '{ printf "%d",$2*1024 }'`
+RESULT="NETIO OK - $INTERFACE: RX=$BYTES_RX, TX=$BYTES_TX|RX=$BYTES_RX TX=$BYTES_TX"
+# Quit and return information and exit status
+theend
+
+
